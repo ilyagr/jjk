@@ -996,7 +996,7 @@ function parsePathMove(
   return { to: path.join(to, rest), from: path.join(from, rest) };
 }
 
-function parseStatusLine(
+export function parseStatusLine(
   statusLine: string,
   repositoryRoot: string,
 ): FileStatus | null {
@@ -1028,7 +1028,7 @@ function parseStatusLine(
   }
 }
 
-function parseJJStatus(
+export function parseJJStatus(
   repositoryRoot: string,
   output: string,
 ): RepositoryStatus {
