@@ -988,11 +988,11 @@ function parsePathMove(
   moveDescription: string,
 ): { from: string; to: string } | null {
   const renameMatch = RENAME_REGEX.exec(moveDescription);
-  if (renameMatch == null) {
+  if (renameMatch === null) {
     return null;
   }
 
-  let [_, from, to, rest] = renameMatch;
+  const [_, from, to, rest] = renameMatch;
   return { to: path.join(to, rest), from: path.join(from, rest) };
 }
 
@@ -1001,7 +1001,7 @@ export function parseStatusLine(
   repositoryRoot: string,
 ): FileStatus | null {
   const changeMatch = STATUS_LINE_REGEX.exec(statusLine);
-  if (changeMatch == null) {
+  if (changeMatch === null) {
     return null;
   }
 
