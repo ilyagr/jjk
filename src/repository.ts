@@ -507,24 +507,20 @@ export class JJRepository {
                 break;
               case "diff.summary()": {
                 const changeRegex = /^(A|M|D|R) (.+)$/;
-                const renameRegex = /\{(.+) => (.+)\}$/;
                 for (const line of value.split("\n").filter(Boolean)) {
                   const changeMatch = changeRegex.exec(line);
                   if (changeMatch) {
                     const [_, type, file] = changeMatch;
 
                     if (type === "R") {
-                      if (renameRegex.test(file)) {
-                        const renameMatch = renameRegex.exec(file);
-                        if (renameMatch) {
-                          const [_, from, to] = renameMatch;
+                      let rename = parsePathMove(file);
+                      if (rename) {
                           ret.fileStatuses.push({
                             type: "R",
-                            file: to,
-                            path: path.join(this.repositoryRoot, to),
-                            renamedFrom: from,
+                            file: rename.to,
+                            path: path.join(this.repositoryRoot, rename.to),
+                            renamedFrom: rename.from,
                           });
-                        }
                       } else {
                         throw new Error(`Unexpected rename line: ${line}`);
                       }
@@ -1006,6 +1002,19 @@ export type Operation = {
   snapshot: boolean;
 };
 
+function parsePathMove(
+  moveDescription: string,
+): { from: string; to: string } | null {
+  const renameRegex = /\{(.+) => (.+)\}(.*)$/;
+  const renameMatch = renameRegex.exec(moveDescription);
+
+  if (renameMatch == null) {
+    return null;
+  }
+  let [_, from, to, rest] = renameMatch;
+  return { to: path.join(to, rest), from: path.join(from, rest) };
+}
+
 function parseJJStatus(
   repositoryRoot: string,
   output: string,
@@ -1024,7 +1033,6 @@ function parseJJStatus(
   const changeRegex = /^(A|M|D|R) (.+)$/;
   const commitRegex =
     /^(Working copy |Parent commit): (\S+) (\S+)(?: (\S+) \|)?(?: (.*))?$/;
-  const renameRegex = /^\{(.+) => (.+)\}$/;
 
   for (const line of lines) {
     if (line.startsWith("Working copy changes:") || line.trim() === "") {
@@ -1035,15 +1043,15 @@ function parseJJStatus(
     if (changeMatch) {
       const [_, type, file] = changeMatch;
 
-      if (type === "R" && renameRegex.test(file)) {
-        const renameMatch = renameRegex.exec(file);
-        if (renameMatch) {
-          const [_, from, to] = renameMatch;
+      // TODO: Extract this
+      if (type === "R") {
+        const rename = parsePathMove(file);
+        if (rename) {
           fileStatuses.push({
             type: "R",
-            file: to,
-            path: path.join(repositoryRoot, to),
-            renamedFrom: from,
+            file: rename.to,
+            path: path.join(repositoryRoot, rename.to),
+            renamedFrom: rename.from,
           });
         }
       } else {
