@@ -981,15 +981,17 @@ export type Operation = {
   snapshot: boolean;
 };
 
+const RENAME_REGEX = /\{(.+) => (.+)\}(.*)$/;
+const STATUS_LINE_REGEX = /^(A|M|D|R) (.+)$/;
+
 function parsePathMove(
   moveDescription: string,
 ): { from: string; to: string } | null {
-  const renameRegex = /\{(.+) => (.+)\}(.*)$/;
-  const renameMatch = renameRegex.exec(moveDescription);
-
+  const renameMatch = RENAME_REGEX.exec(moveDescription);
   if (renameMatch == null) {
     return null;
   }
+
   let [_, from, to, rest] = renameMatch;
   return { to: path.join(to, rest), from: path.join(from, rest) };
 }
@@ -998,9 +1000,7 @@ function parseStatusLine(
   statusLine: string,
   repositoryRoot: string,
 ): FileStatus | null {
-  const changeRegex = /^(A|M|D|R) (.+)$/;
-  const changeMatch = changeRegex.exec(statusLine);
-
+  const changeMatch = STATUS_LINE_REGEX.exec(statusLine);
   if (changeMatch == null) {
     return null;
   }
