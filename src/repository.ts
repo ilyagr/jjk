@@ -506,31 +506,10 @@ export class JJRepository {
                 ret.change.isConflict = value === "true";
                 break;
               case "diff.summary()": {
-                const changeRegex = /^(A|M|D|R) (.+)$/;
                 for (const line of value.split("\n").filter(Boolean)) {
-                  const changeMatch = changeRegex.exec(line);
-                  if (changeMatch) {
-                    const [_, type, file] = changeMatch;
-
-                    if (type === "R") {
-                      let rename = parsePathMove(file);
-                      if (rename) {
-                          ret.fileStatuses.push({
-                            type: "R",
-                            file: rename.to,
-                            path: path.join(this.repositoryRoot, rename.to),
-                            renamedFrom: rename.from,
-                          });
-                      } else {
-                        throw new Error(`Unexpected rename line: ${line}`);
-                      }
-                    } else {
-                      ret.fileStatuses.push({
-                        type: type as "A" | "M" | "D",
-                        file,
-                        path: path.join(this.repositoryRoot, file),
-                      });
-                    }
+                  const fileStatus = parseStatusLine(line, this.repositoryRoot);
+                  if (fileStatus) {
+                    ret.fileStatuses.push(fileStatus);
                   } else {
                     throw new Error(`Unexpected diff summary line: ${line}`);
                   }
@@ -1015,6 +994,40 @@ function parsePathMove(
   return { to: path.join(to, rest), from: path.join(from, rest) };
 }
 
+function parseStatusLine(
+  statusLine: string,
+  repositoryRoot: string,
+): FileStatus | null {
+  const changeRegex = /^(A|M|D|R) (.+)$/;
+  const changeMatch = changeRegex.exec(statusLine);
+
+  if (changeMatch == null) {
+    return null;
+  }
+
+  const [_, type, file] = changeMatch;
+
+  if (type === "R") {
+    const rename = parsePathMove(file);
+    if (rename) {
+      return {
+        type: "R",
+        file: rename.to,
+        path: path.join(repositoryRoot, rename.to),
+        renamedFrom: rename.from,
+      };
+    } else {
+      return null;
+    }
+  } else {
+    return {
+      type: type as "A" | "M" | "D" | "R",
+      file,
+      path: path.join(repositoryRoot, file),
+    };
+  }
+}
+
 function parseJJStatus(
   repositoryRoot: string,
   output: string,
@@ -1030,7 +1043,6 @@ function parseJJStatus(
   };
   const parentCommits: Change[] = [];
 
-  const changeRegex = /^(A|M|D|R) (.+)$/;
   const commitRegex =
     /^(Working copy |Parent commit): (\S+) (\S+)(?: (\S+) \|)?(?: (.*))?$/;
 
@@ -1039,28 +1051,9 @@ function parseJJStatus(
       continue;
     }
 
-    const changeMatch = changeRegex.exec(line);
-    if (changeMatch) {
-      const [_, type, file] = changeMatch;
-
-      // TODO: Extract this
-      if (type === "R") {
-        const rename = parsePathMove(file);
-        if (rename) {
-          fileStatuses.push({
-            type: "R",
-            file: rename.to,
-            path: path.join(repositoryRoot, rename.to),
-            renamedFrom: rename.from,
-          });
-        }
-      } else {
-        fileStatuses.push({
-          type: type as "A" | "M" | "D" | "R",
-          file,
-          path: path.join(repositoryRoot, file),
-        });
-      }
+    const fileStatus = parseStatusLine(line, repositoryRoot);
+    if (fileStatus) {
+      fileStatuses.push(fileStatus);
       continue;
     }
 
